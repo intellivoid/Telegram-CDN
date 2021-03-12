@@ -1,0 +1,42 @@
+{
+    "package": {
+        "package_name": "net.intellivoid.telegram_cdn",
+        "name": "TelegramCDN",
+        "version": "1.0.0.0",
+        "author": "Zi Xing Narrakas",
+        "organization": "Intellivoid",
+        "description": "Library for handling file uploads to Telegram",
+        "url": "https://github.com/intellivoid/Telegram-CDN",
+        "dependencies": [
+            {
+                "package": "net.intellivoid.tdlib",
+                "version": "latest",
+                "source": "default@github/intellivoid/tdlib",
+                "required": true
+            }
+        ],
+        "configuration": {
+            "autoload_method": "generated_spl",
+            "main": null,
+            "post_installation": [],
+            "pre_installation": []
+        }
+    },
+    "components": [
+        {
+            "required": true,
+            "file": "TelegramCDN.php"
+        },
+        {
+            "required": true,
+            "file": "Exceptions/UploadError.php"
+        },
+        {
+            "required": true,
+            "file": "Objects/PhotoResults.php"
+        }
+    ],
+    "files": [
+        "package.json"
+    ]
+}
