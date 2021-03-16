@@ -6,5 +6,5 @@
 
     $TelegramCDN = new \TelegramCDN\TelegramCDN("", [-1001485314519]);
 
-    $Results = $TelegramCDN->uploadFile(__DIR__ . DIRECTORY_SEPARATOR . "example_2.png");
-    var_dump($TelegramCDN->getFileUrl($Results->FileID));
+    $Results = $TelegramCDN->uploadFile(__DIR__ . DIRECTORY_SEPARATOR . "secret_message.txt");
+    var_dump($TelegramCDN->decryptFile($Results));

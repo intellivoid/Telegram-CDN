@@ -2,7 +2,7 @@
     "package": {
         "package_name": "net.intellivoid.telegram_cdn",
         "name": "TelegramCDN",
-        "version": "1.0.0.0",
+        "version": "1.0.0.1",
         "author": "Zi Xing Narrakas",
         "organization": "Intellivoid",
         "description": "Library for handling file uploads to Telegram",
@@ -12,6 +12,12 @@
                 "package": "net.intellivoid.tdlib",
                 "version": "latest",
                 "source": "default@github/intellivoid/tdlib",
+                "required": true
+            },
+            {
+                "package": "com.defuse.php_encryption",
+                "version": "latest",
+                "source": "defuse@composer/php-encryption",
                 "required": true
             }
         ],
@@ -33,7 +39,11 @@
         },
         {
             "required": true,
-            "file": "Objects/PhotoResults.php"
+            "file": "Exceptions/FileSecurityException.php"
+        },
+        {
+            "required": true,
+            "file": "Objects/EncryptedFile.php"
         }
     ],
     "files": [
