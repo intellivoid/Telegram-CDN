@@ -118,7 +118,7 @@
                 $EncryptedFileObject->OriginalFileHash = $data["original_file_hash"];
 
             if(isset($data["encryption_key"]))
-                $EncryptedFileObject = $data["encryption_key"];
+                $EncryptedFileObject->EncryptionKey = $data["encryption_key"];
 
             return $EncryptedFileObject;
         }

@@ -108,6 +108,7 @@
          *
          * @param EncryptedFile $encryptedFile
          * @param bool $verify_integrity
+         * @param null $download_url
          * @return string
          * @throws BadFormatException
          * @throws EnvironmentIsBrokenException
@@ -115,10 +116,11 @@
          * @throws TelegramException
          * @throws WrongKeyOrModifiedCiphertextException
          */
-        public function decryptFile(EncryptedFile $encryptedFile, bool $verify_integrity=True)
+        public function decryptFile(EncryptedFile $encryptedFile, bool $verify_integrity=True, $download_url=null)
         {
-            $DownloadURL = $this->getFileUrl($encryptedFile->FileID);
-            $FileContents = file_get_contents($DownloadURL);
+            if($download_url == null)
+                $download_url = $this->getFileUrl($encryptedFile->FileID);
+            $FileContents = file_get_contents($download_url);
 
             if(hash("sha256", $FileContents) !== $encryptedFile->CdnFileHash && $verify_integrity)
                 throw new FileSecurityException("The file has been modified by the CDN, hash check failed.");
