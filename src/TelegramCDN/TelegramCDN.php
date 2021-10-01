@@ -6,15 +6,21 @@
     use Defuse\Crypto\Crypto;
     use Defuse\Crypto\Exception\BadFormatException;
     use Defuse\Crypto\Exception\EnvironmentIsBrokenException;
+    use Defuse\Crypto\Exception\IOException;
     use Defuse\Crypto\Exception\WrongKeyOrModifiedCiphertextException;
+    use Defuse\Crypto\File;
     use Defuse\Crypto\Key;
     use Longman\TelegramBot\Entities\Message;
     use Longman\TelegramBot\Exception\TelegramException;
     use Longman\TelegramBot\Request;
     use Longman\TelegramBot\Telegram;
+    use MimeLib\Exceptions\CannotDetectFileTypeException;
+    use MimeLib\Exceptions\FileNotFoundException;
+    use MimeLib\MimeLib;
     use TelegramCDN\Exceptions\FileSecurityException;
     use TelegramCDN\Exceptions\UploadError;
     use TelegramCDN\Objects\EncryptedFile;
+    use TmpFile\TmpFile;
 
     /**
      * Class TelegramCDN
@@ -59,38 +65,40 @@
          *
          * @param string $path
          * @return EncryptedFile
-         * @throws UploadError
          * @throws EnvironmentIsBrokenException
+         * @throws IOException
+         * @throws UploadError
+         * @throws CannotDetectFileTypeException
+         * @throws FileNotFoundException
          */
         public function uploadFile(string $path): EncryptedFile
         {
             // Start to get information about the original file
             $EncryptedFile = new EncryptedFile();
-            $EncryptedFile->OriginalFileHash = hash("sha256", file_get_contents($path));
-            $EncryptedFile->OriginalFileSize = strlen(file_get_contents($path));
-            $EncryptedFile->MimeType = mime_content_type($path);
+            $EncryptedFile->OriginalFileHash = hash_file("sha256", $path);
+            $EncryptedFile->OriginalFileSize = filesize($path);
+            $EncryptedFile->MimeType = MimeLib::detectFileType($path)->getMime();
+
+            // Create a temporary file
+            $EncryptedFileTmp = new TmpFile(null);
 
             // Encrypt the file
             $EncryptionKey = Key::createNewRandomKey();
-            $EncryptedData = Crypto::encrypt(file_get_contents($path), $EncryptionKey, true);
-            $EncryptedFilePath = $path . ".bin";
-
-            // Save the file to disk temporarily
-            file_put_contents($EncryptedFilePath, $EncryptedData);
+            File::encryptFile($path, $EncryptedFileTmp->getFileName(), $EncryptionKey);
 
             // Record the encryption results
             $EncryptedFile->EncryptionKey = $EncryptionKey->saveToAsciiSafeString();
-            $EncryptedFile->CdnFileHash = hash("sha256", $EncryptedData);
-            $EncryptedFile->CdnFileSize = strlen($EncryptedData);
+            $EncryptedFile->CdnFileHash = hash_file("sha256", $EncryptedFileTmp->getFileName());
+            $EncryptedFile->CdnFileSize = filesize($EncryptedFileTmp->getFileName());
 
             // Upload the data
             $UploadResults = Request::sendDocument([
                 "chat_id" => $this->channels[array_rand($this->channels)],
-                "document" => $EncryptedFilePath
+                "document" => $EncryptedFileTmp->getFileName()
             ]);
 
             // Delete temporary file
-            unlink($EncryptedFilePath);
+            unlink($EncryptedFileTmp->getFileName());
 
             if($UploadResults->isOk() == false)
                 throw new UploadError($UploadResults->getDescription(), $UploadResults->getErrorCode(), $UploadResults->getRawData());
@@ -113,25 +121,30 @@
          * @throws BadFormatException
          * @throws EnvironmentIsBrokenException
          * @throws FileSecurityException
+         * @throws IOException
          * @throws TelegramException
          * @throws WrongKeyOrModifiedCiphertextException
          */
-        public function decryptFile(EncryptedFile $encryptedFile, bool $verify_integrity=True, $download_url=null)
+        public function decryptFile(EncryptedFile $encryptedFile, bool $verify_integrity=True, $download_url=null): string
         {
             if($download_url == null)
                 $download_url = $this->getFileUrl($encryptedFile->FileID);
-            $FileContents = file_get_contents($download_url);
+            $FileResource = fopen($download_url, 'rb');
 
-            if(hash("sha256", $FileContents) !== $encryptedFile->CdnFileHash && $verify_integrity)
+            // Create a temporary file
+            $DecryptedFileTmp = new TmpFile(null);
+            $DecryptedFileTmp->delete = false;
+            $DecryptedFileResource = fopen($DecryptedFileTmp->getFileName(), 'wb');
+            $EncryptionKey = Key::loadFromAsciiSafeString($encryptedFile->EncryptionKey);
+            File::decryptResource($FileResource, $DecryptedFileResource, $EncryptionKey);
+
+            fclose($DecryptedFileResource);
+            fclose($FileResource);
+
+            if(hash_file("sha256", $DecryptedFileTmp->getFileName()) !== $encryptedFile->CdnFileHash && $verify_integrity)
                 throw new FileSecurityException("The file has been modified by the CDN, hash check failed.");
 
-            $EncryptionKey = Key::loadFromAsciiSafeString($encryptedFile->EncryptionKey);
-            $DecryptedContents = Crypto::decrypt($FileContents, $EncryptionKey, true);
-
-            if(hash("sha256", $DecryptedContents) !== $encryptedFile->OriginalFileHash && $verify_integrity)
-                throw new FileSecurityException("The file has been modified by the decipher, hash check failed.");
-
-            return $DecryptedContents;
+            return $DecryptedFileTmp->getFileName();
         }
 
         /**
