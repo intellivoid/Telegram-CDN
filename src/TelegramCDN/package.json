@@ -2,7 +2,7 @@
     "package": {
         "package_name": "net.intellivoid.telegram_cdn",
         "name": "TelegramCDN",
-        "version": "1.0.0.2",
+        "version": "1.0.2.0",
         "author": "Zi Xing Narrakas",
         "organization": "Intellivoid",
         "description": "Library for handling file uploads to Telegram",
