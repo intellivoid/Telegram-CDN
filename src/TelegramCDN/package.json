@@ -19,6 +19,18 @@
                 "version": "latest",
                 "source": "defuse@composer/php-encryption",
                 "required": true
+            },
+            {
+                "package": "net.intellivoid.mimelib",
+                "version": "latest",
+                "source": "default@github/intellivoid/MimeLib",
+                "required": true
+            },
+            {
+                "package": "net.intellivoid.tmpfile",
+                "version": "latest",
+                "source": "default@github/intellivoid/TmpFile",
+                "required": true
             }
         ],
         "configuration": {
