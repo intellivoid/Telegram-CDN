@@ -6,10 +6,10 @@
     namespace TelegramCDN\Objects;
 
     /**
-     * Class EncryptedFile
+     * Class File
      * @package TelegramCDN\Objects
      */
-    class EncryptedFile
+    class File
     {
         /**
          * Identifier for this file, which can be used to download or reuse the file
@@ -33,20 +33,6 @@
         public $MimeType;
 
         /**
-         * File size on the CDN
-         *
-         * @var int|null
-         */
-        public $CdnFileSize;
-
-        /**
-         * The hash of the file stored on the CDN
-         *
-         * @var string
-         */
-        public $CdnFileHash;
-
-        /**
          * The original file size
          *
          * @var int|null
@@ -61,13 +47,6 @@
         public $OriginalFileHash;
 
         /**
-         * The encryption key used to encrypt the contents of the file
-         *
-         * @var string
-         */
-        public $EncryptionKey;
-
-        /**
          * Returns an array representation of the object
          *
          * @return array
@@ -78,11 +57,8 @@
                 "file_id" => $this->FileID,
                 "file_unique_id" => $this->FileUniqueID,
                 "mime_type" => $this->MimeType,
-                "cdn_file_size" => $this->CdnFileSize,
-                "cdn_file_hash" => $this->CdnFileHash,
                 "original_file_size" => $this->OriginalFileSize,
-                "original_file_hash" => $this->OriginalFileHash,
-                "encryption_key" => $this->EncryptionKey
+                "original_file_hash" => $this->OriginalFileHash
             ];
         }
 
@@ -90,37 +66,28 @@
          * Constructs the object from an array representation
          *
          * @param array $data
-         * @return EncryptedFile
+         * @return File
          * @noinspection DuplicatedCode
          */
-        public static function fromArray(array $data): EncryptedFile
+        public static function fromArray(array $data): File
         {
-            $EncryptedFileObject = new EncryptedFile();
+            $FileObject = new File();
 
             if(isset($data["file_id"]))
-                $EncryptedFileObject->FileID = $data["file_id"];
+                $FileObject->FileID = $data["file_id"];
 
             if(isset($data["file_unique_id"]))
-                $EncryptedFileObject->FileUniqueID = $data["file_unique_id"];
+                $FileObject->FileUniqueID = $data["file_unique_id"];
 
             if(isset($data["mime_type"]))
-                $EncryptedFileObject->MimeType = $data["mime_type"];
-
-            if(isset($data["cdn_file_size"]))
-                $EncryptedFileObject->CdnFileSize = $data["cdn_file_size"];
-
-            if(isset($data["cdn_file_hash"]))
-                $EncryptedFileObject->CdnFileHash = $data["cdn_file_hash"];
+                $FileObject->MimeType = $data["mime_type"];
 
             if(isset($data["original_file_size"]))
-                $EncryptedFileObject->OriginalFileSize = $data["original_file_size"];
+                $FileObject->OriginalFileSize = $data["original_file_size"];
 
             if(isset($data["original_file_hash"]))
-                $EncryptedFileObject->OriginalFileHash = $data["original_file_hash"];
+                $FileObject->OriginalFileHash = $data["original_file_hash"];
 
-            if(isset($data["encryption_key"]))
-                $EncryptedFileObject->EncryptionKey = $data["encryption_key"];
-
-            return $EncryptedFileObject;
+            return $FileObject;
         }
     }

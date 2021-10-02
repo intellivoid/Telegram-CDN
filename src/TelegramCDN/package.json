@@ -43,7 +43,7 @@
     "components": [
         {
             "required": true,
-            "file": "TelegramCDN.php"
+            "file": "Exceptions/FileSecurityException.php"
         },
         {
             "required": true,
@@ -51,11 +51,15 @@
         },
         {
             "required": true,
-            "file": "Exceptions/FileSecurityException.php"
+            "file": "Objects/EncryptedFile.php"
         },
         {
             "required": true,
-            "file": "Objects/EncryptedFile.php"
+            "file": "Objects/File.php"
+        },
+        {
+            "required": true,
+            "file": "TelegramCDN.php"
         }
     ],
     "files": [

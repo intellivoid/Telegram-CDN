@@ -3,7 +3,6 @@
 
     namespace TelegramCDN;
 
-    use Defuse\Crypto\Crypto;
     use Defuse\Crypto\Exception\BadFormatException;
     use Defuse\Crypto\Exception\EnvironmentIsBrokenException;
     use Defuse\Crypto\Exception\IOException;
@@ -29,13 +28,6 @@
     class TelegramCDN
     {
         /**
-         * The Bot API used to access Telegram's servers
-         *
-         * @var string
-         */
-        private string $bot_api;
-
-        /**
          * Channels to upload content to
          *
          * @var int[]
@@ -55,9 +47,8 @@
          */
         public function __construct(string $bot_api, array $channels=[])
         {
-            $this->bot_api = $bot_api;
             $this->channels = $channels;
-            $this->telegram = new Telegram($bot_api, "", false);
+            $this->telegram = new Telegram($bot_api, (string)null);
         }
 
         /**
@@ -70,12 +61,13 @@
          * @throws UploadError
          * @throws CannotDetectFileTypeException
          * @throws FileNotFoundException
+         * @noinspection DuplicatedCode
          */
-        public function uploadFile(string $path): EncryptedFile
+        public function uploadFileEncrypted(string $path): EncryptedFile
         {
             // Start to get information about the original file
             $EncryptedFile = new EncryptedFile();
-            $EncryptedFile->OriginalFileHash = hash_file("sha256", $path);
+            $EncryptedFile->OriginalFileHash = hash_file("sha1", $path);
             $EncryptedFile->OriginalFileSize = filesize($path);
             $EncryptedFile->MimeType = MimeLib::detectFileType($path)->getMime();
 
@@ -88,7 +80,7 @@
 
             // Record the encryption results
             $EncryptedFile->EncryptionKey = $EncryptionKey->saveToAsciiSafeString();
-            $EncryptedFile->CdnFileHash = hash_file("sha256", $EncryptedFileTmp->getFileName());
+            $EncryptedFile->CdnFileHash = hash_file("sha1", $EncryptedFileTmp->getFileName());
             $EncryptedFile->CdnFileSize = filesize($EncryptedFileTmp->getFileName());
 
             // Upload the data
@@ -112,6 +104,41 @@
         }
 
         /**
+         * Uploads a file to Telegram's servers without encryption
+         *
+         * @param string $path
+         * @return Objects\File
+         * @throws CannotDetectFileTypeException
+         * @throws FileNotFoundException
+         * @throws UploadError
+         * @noinspection DuplicatedCode
+         */
+        public function uploadFile(string $path): Objects\File
+        {
+            // Start to get information about the original file
+            $File = new Objects\File();
+            $File->OriginalFileHash = hash_file("sha1", $path);
+            $File->OriginalFileSize = filesize($path);
+            $File->MimeType = MimeLib::detectFileType($path)->getMime();
+
+            // Upload the data
+            $UploadResults = Request::sendDocument([
+                "chat_id" => $this->channels[array_rand($this->channels)],
+                "document" => $path
+            ]);
+            
+            if($UploadResults->isOk() == false)
+                throw new UploadError($UploadResults->getDescription(), $UploadResults->getErrorCode(), $UploadResults->getRawData());
+
+            /** @var Message $Message */
+            $Message = $UploadResults->getResult();
+            $File->FileUniqueID = $Message->getDocument()->getRawData()["file_unique_id"];
+            $File->FileID = $Message->getDocument()->getFileId();
+
+            return $File;
+        }
+
+        /**
          * Downloads the file from the CDN and decrypts the contents via inline memory
          *
          * @param EncryptedFile $encryptedFile
@@ -125,26 +152,75 @@
          * @throws TelegramException
          * @throws WrongKeyOrModifiedCiphertextException
          */
-        public function decryptFile(EncryptedFile $encryptedFile, bool $verify_integrity=True, $download_url=null): string
+        public function downloadEncryptedFile(EncryptedFile $encryptedFile, bool $verify_integrity=True, $download_url=null): string
         {
             if($download_url == null)
                 $download_url = $this->getFileUrl($encryptedFile->FileID);
-            $FileResource = fopen($download_url, 'rb');
 
             // Create a temporary file
             $DecryptedFileTmp = new TmpFile(null);
+
             $DecryptedFileTmp->delete = false;
-            $DecryptedFileResource = fopen($DecryptedFileTmp->getFileName(), 'wb');
+            $DownloadedFile = $this->downloadFileStream($download_url);
             $EncryptionKey = Key::loadFromAsciiSafeString($encryptedFile->EncryptionKey);
-            File::decryptResource($FileResource, $DecryptedFileResource, $EncryptionKey);
-
-            fclose($DecryptedFileResource);
-            fclose($FileResource);
-
-            if(hash_file("sha256", $DecryptedFileTmp->getFileName()) !== $encryptedFile->CdnFileHash && $verify_integrity)
+            
+            if(hash_file("sha1", $DownloadedFile) !== $encryptedFile->CdnFileHash && $verify_integrity)
                 throw new FileSecurityException("The file has been modified by the CDN, hash check failed.");
 
+            File::decryptFile($DownloadedFile, $DecryptedFileTmp->getFileName(), $EncryptionKey);
+            unlink($DownloadedFile);
+
+            if(hash_file("sha1", $DecryptedFileTmp->getFileName()) !== $encryptedFile->OriginalFileHash && $verify_integrity)
+                throw new FileSecurityException("The file has been modified by the decipher, hash check failed.");
+
             return $DecryptedFileTmp->getFileName();
+        }
+
+        /**
+         * Downloads a unencrypted file to disk
+         *
+         * @param Objects\File $encryptedFile
+         * @param bool $verify_integrity
+         * @param null $download_url
+         * @return string
+         * @throws FileSecurityException
+         * @throws TelegramException
+         */
+        public function downloadFile(Objects\File $encryptedFile, bool $verify_integrity=True, $download_url=null): string
+        {
+            if($download_url == null)
+                $download_url = $this->getFileUrl($encryptedFile->FileID);
+
+            $DownloadedFile = $this->downloadFileStream($download_url);
+
+            if(hash_file("sha1", $DownloadedFile) !== $encryptedFile->OriginalFileHash && $verify_integrity)
+                throw new FileSecurityException("The file has been modified by the CDN, hash check failed.");
+
+            return $DownloadedFile;
+        }
+
+        /**
+         * Downloads a file stream
+         *
+         * @param string $location
+         * @return string
+         */
+        private function downloadFileStream(string $location): string
+        {
+            $TemporaryFile = new TmpFile(null);
+            $TemporaryFile->delete = false;
+
+            //This is the file where we save the    information
+            $fp = fopen ($TemporaryFile->getFileName(), 'w+');
+            $ch = curl_init(str_replace(" ","%20", $location));
+            curl_setopt($ch, CURLOPT_TIMEOUT, 50);
+            curl_setopt($ch, CURLOPT_FILE, $fp);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_exec($ch);
+            curl_close($ch);
+            fclose($fp);
+
+            return $TemporaryFile->getFileName();
         }
 
         /**
@@ -161,6 +237,7 @@
 
         /**
          * @return Telegram
+         * @noinspection PhpUnused
          */
         public function getTelegram(): Telegram
         {
